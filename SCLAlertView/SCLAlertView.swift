@@ -93,14 +93,48 @@ open class SCLButton: UIButton {
     
     public init() {
         super.init(frame: CGRect.zero)
+        setupFocusable()
     }
     
     required public init?(coder aDecoder: NSCoder) {
         super.init(coder:aDecoder)
+        setupFocusable()
     }
     
     override public init(frame:CGRect) {
         super.init(frame:frame)
+        setupFocusable()
+    }
+
+    private func setupFocusable() {
+        self.isAccessibilityElement = true
+        self.accessibilityTraits = .button
+
+#if targetEnvironment(macCatalyst)
+        if #available(macCatalyst 14.0, *) {
+            self.focusGroupIdentifier = "com.sclalert.main"
+        }
+
+        if #available(macCatalyst 15.0, *) {
+            focusEffect = UIFocusHaloEffect()
+        }
+#else
+        if #available(iOS 14.0, *) {
+            self.focusGroupIdentifier = "com.sclalert.main"
+        }
+
+        if #available(iOS 15.0, *) {
+            focusEffect = UIFocusHaloEffect()
+        }
+#endif
+    }
+
+    open override var canBecomeFocused: Bool {
+        return true
+    }
+
+    open override var canBecomeFirstResponder: Bool {
+        return true
     }
 }
 
@@ -341,13 +375,49 @@ open class SCLAlertView: UIViewController {
         
         super.init(nibName:nibNameOrNil, bundle:nibBundleOrNil)
     }
-    
+
+    override public var keyCommands: [UIKeyCommand]? {
+        return [
+            UIKeyCommand(input: "\r", modifierFlags: [], action: #selector(handleEnterKey), discoverabilityTitle: "Activate focused button")
+        ]
+    }
+
+    open override var canBecomeFirstResponder: Bool {
+        true
+    }
+
+    @objc private func handleEnterKey() {
+        guard let focusedView = UIFocusSystem(for: self)?.focusedItem as? SCLButton else {
+            return
+        }
+        if focusedView.actionType == .closure, let action = focusedView.action {
+            action()
+        } else if focusedView.actionType == .selector, let target = focusedView.target, let selector = focusedView.selector {
+            target.perform(selector)
+        }
+        if appearance.shouldAutoDismiss {
+            hideView()
+        }
+    }
+
     fileprivate func setup() {
-        // Set up main view
+
+#if targetEnvironment(macCatalyst)
+        if #available(macCatalyst 14.0, *) {
+            contentView.focusGroupIdentifier = "com.sclalert.main"
+        }
+#else
+        if #available(iOS 14.0, *) {
+            contentView.focusGroupIdentifier = "com.sclalert.main"
+        }
+#endif
+
         view.frame = UIScreen.main.bounds
         view.autoresizingMask = [UIView.AutoresizingMask.flexibleHeight, UIView.AutoresizingMask.flexibleWidth]
         view.backgroundColor = UIColor(red:0, green:0, blue:0, alpha: isShowing() ? 0 : appearance.kDefaultShadowOpacity)
         view.addSubview(baseView)
+
+        view.becomeFirstResponder()
         // Base View
         baseView.frame = view.frame
         baseView.addSubview(contentView)
@@ -517,6 +587,8 @@ open class SCLAlertView: UIViewController {
         super.viewDidAppear(animated)
         NotificationCenter.default.addObserver(self, selector: #selector(SCLAlertView.keyboardWillShow(_:)), name:UIResponder.keyboardWillShowNotification, object: nil);
         NotificationCenter.default.addObserver(self, selector: #selector(SCLAlertView.keyboardWillHide(_:)), name:UIResponder.keyboardWillHideNotification, object: nil);
+
+        becomeFirstResponder()
     }
     
     open override func viewDidDisappear(_ animated: Bool) {
@@ -536,6 +608,19 @@ open class SCLAlertView: UIViewController {
         appearance.setkWindowHeight(appearance.kWindowHeight + appearance.kTextFieldHeight)
         // Add text field
         let txt = UITextField()
+
+#if targetEnvironment(macCatalyst)
+        if #available(macCatalyst 14.0, *) {
+            txt.focusGroupIdentifier = "com.sclalert.main"
+        }
+#else
+        if #available(iOS 14.0, *) {
+            txt.focusGroupIdentifier = "com.sclalert.main"
+        }
+#endif
+
+        txt.isAccessibilityElement = true
+        txt.accessibilityTraits = [.button, .searchField]
         txt.borderStyle = UITextField.BorderStyle.roundedRect
         txt.font = appearance.kTextFont
         txt.autocapitalizationType = UITextAutocapitalizationType.words
@@ -558,7 +643,7 @@ open class SCLAlertView: UIViewController {
         appearance.setkWindowHeight(appearance.kWindowHeight + appearance.kTextViewdHeight)
         // Add text view
         let txt = UITextView()
-        // No placeholder with UITextView but you can use KMPlaceholderTextView library 
+        // No placeholder with UITextView but you can use KMPlaceholderTextView library
         txt.font = appearance.kTextFont
         //txt.autocapitalizationType = UITextAutocapitalizationType.Words
         //txt.clearButtonMode = UITextFieldViewMode.WhileEditing
