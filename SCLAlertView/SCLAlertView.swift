@@ -386,17 +386,29 @@ open class SCLAlertView: UIViewController {
         true
     }
 
+    open override var preferredFocusEnvironments: [UIFocusEnvironment] {
+        return inputs + buttons
+    }
+
     @objc private func handleEnterKey() {
-        guard let focusedView = UIFocusSystem(for: self)?.focusedItem as? SCLButton else {
-            return
+        if let sclButton = UIFocusSystem(for: self)?.focusedItem as? SCLButton {
+            handleButton(sclButton)
         }
-        if focusedView.actionType == .closure, let action = focusedView.action {
-            action()
-        } else if focusedView.actionType == .selector, let target = focusedView.target, let selector = focusedView.selector {
-            target.perform(selector)
+
+        if let textField = UIFocusSystem(for: self)?.focusedItem as? UITextField {
+            textField.resignFirstResponder()
         }
+
         if appearance.shouldAutoDismiss {
             hideView()
+        }
+    }
+
+    private func handleButton(_ sclButton: SCLButton) {
+        if sclButton.actionType == .closure, let action = sclButton.action {
+            action()
+        } else if sclButton.actionType == .selector, let target = sclButton.target, let selector = sclButton.selector {
+            target.perform(selector)
         }
     }
 
@@ -587,6 +599,7 @@ open class SCLAlertView: UIViewController {
         super.viewDidAppear(animated)
         NotificationCenter.default.addObserver(self, selector: #selector(SCLAlertView.keyboardWillShow(_:)), name:UIResponder.keyboardWillShowNotification, object: nil);
         NotificationCenter.default.addObserver(self, selector: #selector(SCLAlertView.keyboardWillHide(_:)), name:UIResponder.keyboardWillHideNotification, object: nil);
+        let debugger = UIFocusDebugger()
 
         becomeFirstResponder()
     }
@@ -625,10 +638,11 @@ open class SCLAlertView: UIViewController {
         txt.font = appearance.kTextFont
         txt.autocapitalizationType = UITextAutocapitalizationType.words
         txt.clearButtonMode = UITextField.ViewMode.whileEditing
-        
+        txt.returnKeyType = .next
         txt.layer.masksToBounds = true
         txt.layer.borderWidth = 1.0
-        
+        txt.delegate = self
+
         if title != nil {
             txt.placeholder = title!
         }
@@ -1483,4 +1497,28 @@ fileprivate extension UIColor {
     }
     
     static var defaultButtonTitleColor: UIColor = .systemBackground
+}
+
+extension SCLAlertView: UITextFieldDelegate {
+    public func textFieldShouldReturn(_ textField: UITextField) -> Bool {
+        // Find the index of the current text field
+        if let index = inputs.firstIndex(of: textField) {
+            let nextIndex = index + 1
+            if nextIndex < inputs.count {
+                // Move to the next text field
+                inputs[nextIndex].becomeFirstResponder()
+            } else {
+                // If no more text fields, dismiss the keyboard
+                textField.resignFirstResponder()
+                if buttons.count == 1 {
+                    if let button = buttons.first as? SCLButton {
+                        handleButton(button)
+                    }
+                } else {
+                    buttons.first?.becomeFirstResponder()
+                }
+            }
+        }
+        return true
+    }
 }
