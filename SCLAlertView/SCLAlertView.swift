@@ -429,7 +429,6 @@ open class SCLAlertView: UIViewController {
         view.backgroundColor = UIColor(red:0, green:0, blue:0, alpha: isShowing() ? 0 : appearance.kDefaultShadowOpacity)
         view.addSubview(baseView)
 
-        view.becomeFirstResponder()
         // Base View
         baseView.frame = view.frame
         baseView.addSubview(contentView)
@@ -601,9 +600,16 @@ open class SCLAlertView: UIViewController {
         NotificationCenter.default.addObserver(self, selector: #selector(SCLAlertView.keyboardWillHide(_:)), name:UIResponder.keyboardWillHideNotification, object: nil);
         let debugger = UIFocusDebugger()
 
-        becomeFirstResponder()
     }
-    
+
+    open override func viewWillAppear(_ animated: Bool) {
+        if !inputs.isEmpty {
+            inputs.first?.becomeFirstResponder()
+        } else {
+            becomeFirstResponder()
+        }
+    }
+
     open override func viewDidDisappear(_ animated: Bool) {
         super.viewDidDisappear(animated)
         NotificationCenter.default.removeObserver(self, name: UIResponder.keyboardWillShowNotification, object: nil)
