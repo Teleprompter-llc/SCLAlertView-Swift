@@ -607,6 +607,10 @@ open class SCLAlertView: UIViewController {
             inputs.first?.becomeFirstResponder()
         } else {
             becomeFirstResponder()
+            let textViews = window.topViewController()?.view.findSubviews(ofType: UITextField.self)
+            textViews?.forEach {
+                $0.resignFirstResponder()
+            }
         }
     }
 
@@ -1526,5 +1530,49 @@ extension SCLAlertView: UITextFieldDelegate {
             }
         }
         return true
+    }
+}
+
+extension UIWindow {
+    func topViewController() -> UIViewController? {
+        guard let rootViewController else { return nil }
+
+        return UIWindow.topViewController(from: rootViewController)
+    }
+
+    private static func topViewController(from rootViewController: UIViewController) -> UIViewController? {
+        if let tabBarController = rootViewController as? UITabBarController {
+            if let selectedViewController = tabBarController.selectedViewController {
+                return UIWindow.topViewController(from: selectedViewController)
+            }
+        }
+
+        if let navigationController = rootViewController as? UINavigationController {
+            if let topViewController = navigationController.topViewController {
+                return UIWindow.topViewController(from: topViewController)
+            }
+        }
+
+        if let presentedViewController = rootViewController.presentedViewController {
+            return UIWindow.topViewController(from: presentedViewController)
+        }
+
+        return rootViewController
+    }
+}
+
+extension UIView {
+    func findSubviews<T: UIView>(ofType type: T.Type) -> [T] {
+        var result = [T]()
+
+        if let view = self as? T {
+            result.append(view)
+        }
+
+        for subview in self.subviews {
+            result.append(contentsOf: subview.findSubviews(ofType: type))
+        }
+
+        return result
     }
 }
